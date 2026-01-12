@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robot Arena - UCB AI Battle</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            overflow-x: hidden;
+            padding: 10px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            padding: 10px;
+        }
+
+        .stats-panel {
+            background: rgba(30, 30, 50, 0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .stat-icon {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .player-stats {
+            color: #6b9eff;
+        }
+
+        .bot-stats {
+            color: #ff6b6b;
+        }
+
+        .round-indicator {
+            background: rgba(139, 92, 246, 0.3);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+
+        #game-container {
+            border: 4px solid rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        #game-container canvas {
+            display: block;
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        .info-panel {
+            margin-top: 15px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+            padding: 0 10px;
+        }
+
+        .info-panel .highlight {
+            color: #a78bfa;
+            font-weight: 600;
+        }
+
+        .controls-help {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(30, 30, 50, 0.5);
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .controls-help h3 {
+            color: #a78bfa;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .controls-help p {
+            margin: 5px 0;
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                padding: 5px;
+            }
+
+            .stats-panel {
+                padding: 12px;
+                gap: 10px;
+                font-size: 12px;
+            }
+
+            .stat-item {
+                font-size: 12px;
+                gap: 6px;
+            }
+
+            .stat-icon {
+                width: 16px;
+                height: 16px;
+            }
+
+            .round-indicator {
+                width: 100%;
+                text-align: center;
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+
+            .info-panel {
+                font-size: 11px;
+            }
+
+            .controls-help {
+                font-size: 11px;
+                padding: 12px;
+            }
+
+            .controls-help h3 {
+                font-size: 13px;
+            }
+
+            #game-container {
+                border-width: 2px;
+            }
+        }
+
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .stats-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .stat-item {
+                justify-content: center;
+            }
+
+            .controls-help p {
+                font-size: 10px;
+            }
+        }
+
+        /* Landscape orientation for mobile */
+        @media (max-height: 600px) and (orientation: landscape) {
+            body {
+                justify-content: flex-start;
+                padding-top: 10px;
+            }
+
+            .stats-panel {
+                padding: 8px;
+                margin-bottom: 8px;
+            }
+
+            .info-panel,
+            .controls-help {
+                display: none;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 18px;
+            padding: 40px;
+        }
+
+        /* Prevent text selection on game elements */
+        .stats-panel, #game-container {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="stats-panel">
+            <div class="stat-item player-stats">
+                <svg class="stat-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <span>Player: <strong id="player-health">100</strong>% | Vitórias: <strong id="player-wins">0</strong></span>
+            </div>
+
+            <div class="round-indicator">
+                ⚔️ Round <span id="round-number">1</span>
+            </div>
+
+            <div class="stat-item bot-stats">
+                <svg class="stat-icon" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9 1v4.39C7.27 6.18 6 7.95 6 10c0 2.21 1.79 4 4 4s4-1.79 4-4c0-2.05-1.27-3.82-3-4.61V1H9zm3 11c-2.76 0-5 2.24-5 5v5h10v-5c0-2.76-2.24-5-5-5z"/>
+                </svg>
+                <span>Bot (UCB): <strong id="bot-health">100</strong>% | Vitórias: <strong id="bot-wins">0</strong></span>
+            </div>
+        </div>
+
+        <div id="game-container"></div>
+
+        <div class="info-panel">
+            <p>
+                <span class="highlight">UCB Algorithm:</span> O bot aprende através de Upper Confidence Bound, 
+                equilibrando exploração de novas estratégias e exploração das melhores ações conhecidas.
+            </p>
+            <p style="font-size: 11px; margin-top: 8px;">
+                Danos críticos (25% chance) e campo de visão baseado em produto escalar simulam física realista.
+            </p>
+
+            <div class="controls-help">
+                <h3>📋 Como Jogar</h3>
+                <p>Clique nos botões na parte inferior da arena para executar ações:</p>
+                <p>⚔️ <strong>ATTACK</strong> - Ataque direto | 🛡️ <strong>DEFEND</strong> - Reduz dano em 70%</p>
+                <p>💨 <strong>DODGE</strong> - Evita completamente | ⚡ <strong>CHARGE</strong> - Alto risco/recompensa</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // UCB Algorithm Implementation
+        class UCBAgent {
+            constructor() {
+                this.actions = ['attack', 'defend', 'dodge', 'charge'];
+                this.counts = new Array(this.actions.length).fill(0);
+                this.values = new Array(this.actions.length).fill(0);
+                this.totalCount = 0;
+                this.c = Math.sqrt(2);
+            }
+
+            selectAction() {
+                this.totalCount++;
+                
+                for (let i = 0; i < this.actions.length; i++) {
+                    if (this.counts[i] === 0) {
+                        return i;
+                    }
+                }
+
+                const ucbValues = this.actions.map((_, i) => {
+                    const exploitation = this.values[i];
+                    const exploration = this.c * Math.sqrt(Math.log(this.totalCount) / this.counts[i]);
+                    return exploitation + exploration;
+                });
+
+                return ucbValues.indexOf(Math.max(...ucbValues));
+            }
+
+            updateReward(actionIndex, reward) {
+                this.counts[actionIndex]++;
+                const n = this.counts[actionIndex];
+                this.values[actionIndex] = this.values[actionIndex] + (reward - this.values[actionIndex]) / n;
+            }
+
+            getActionName(index) {
+                return this.actions[index];
+            }
+        }
+
+        // Responsive game size
+        function getGameDimensions() {
+            const container = document.getElementById('game-container');
+            const maxWidth = Math.min(800, window.innerWidth - 40);
+            const width = maxWidth;
+            const height = (width * 600) / 800; // Maintain 800x600 aspect ratio
+            return { width, height };
+        }
+
+        // Game Configuration
+        const dimensions = getGameDimensions();
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'game-container',
+            width: dimensions.width,
+            height: dimensions.height,
+            backgroundColor: '#1a1a2e',
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scale: {
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH
+            },
+            scene: {
+                create: create,
+                update: update
+            }
+        };
+
+        let player, bot, ucbAgent;
+        let gameState = {
+            playerHealth: 100,
+            botHealth: 100,
+            round: 1,
+            playerWins: 0,
+            botWins: 0,
+            actionCooldown: 0
+        };
+
+        // Scale factor for responsive positioning
+        const scaleX = dimensions.width / 800;
+        const scaleY = dimensions.height / 600;
+
+        function create() {
+            const scene = this;
+            ucbAgent = new UCBAgent();
+
+            // Arena
+            const graphics = scene.add.graphics();
+            graphics.lineStyle(4 * scaleX, 0x00ff88, 1);
+            graphics.strokeRect(50 * scaleX, 50 * scaleY, 700 * scaleX, 500 * scaleY);
+
+            // Player robot (blue)
+            player = scene.add.container(200 * scaleX, 300 * scaleY);
+            const playerBody = scene.add.rectangle(0, 0, 40 * scaleX, 60 * scaleY, 0x4444ff);
+            const playerHead = scene.add.circle(0, -40 * scaleY, 20 * scaleX, 0x6666ff);
+            const playerSword = scene.add.rectangle(30 * scaleX, 0, 40 * scaleX, 8 * scaleY, 0xcccccc);
+            player.add([playerBody, playerHead, playerSword]);
+            player.setData('health', 100);
+            player.setData('facing', 1);
+
+            // Bot robot (red)
+            bot = scene.add.container(600 * scaleX, 300 * scaleY);
+            const botBody = scene.add.rectangle(0, 0, 40 * scaleX, 60 * scaleY, 0xff4444);
+            const botHead = scene.add.circle(0, -40 * scaleY, 20 * scaleX, 0xff6666);
+            const botSword = scene.add.rectangle(-30 * scaleX, 0, 40 * scaleX, 8 * scaleY, 0xcccccc);
+            bot.add([botBody, botHead, botSword]);
+            bot.setData('health', 100);
+            bot.setData('facing', -1);
+
+            // Health bars
+            const playerHealthBar = scene.add.rectangle(100 * scaleX, 30 * scaleY, 200 * scaleX, 20 * scaleY, 0x00ff00);
+            playerHealthBar.setOrigin(0, 0.5);
+            playerHealthBar.setData('maxWidth', 200 * scaleX);
+            player.setData('healthBar', playerHealthBar);
+
+            const botHealthBar = scene.add.rectangle(500 * scaleX, 30 * scaleY, 200 * scaleX, 20 * scaleY, 0x00ff00);
+            botHealthBar.setOrigin(0, 0.5);
+            botHealthBar.setData('maxWidth', 200 * scaleX);
+            bot.setData('healthBar', botHealthBar);
+
+            // Labels
+            const labelSize = Math.max(12, 16 * scaleX);
+            scene.add.text(100 * scaleX, 50 * scaleY, 'PLAYER', { fontSize: labelSize + 'px', fill: '#4444ff' });
+            scene.add.text(600 * scaleX, 50 * scaleY, 'BOT (UCB)', { fontSize: labelSize + 'px', fill: '#ff4444' });
+
+            // Control buttons
+            const buttonSize = Math.max(11, 14 * scaleX);
+            const buttonStyle = {
+                fontSize: buttonSize + 'px',
+                fill: '#ffffff',
+                backgroundColor: '#333333',
+                padding: { x: 10 * scaleX, y: 5 * scaleY }
+            };
+
+            const btnY = 560 * scaleY;
+            scene.add.text(50 * scaleX, btnY, '⚔️ ATTACK', buttonStyle)
+                .setInteractive()
+                .on('pointerdown', () => playerAction('attack', scene));
+
+            scene.add.text(180 * scaleX, btnY, '🛡️ DEFEND', buttonStyle)
+                .setInteractive()
+                .on('pointerdown', () => playerAction('defend', scene));
+
+            scene.add.text(310 * scaleX, btnY, '💨 DODGE', buttonStyle)
+                .setInteractive()
+                .on('pointerdown', () => playerAction('dodge', scene));
+
+            scene.add.text(440 * scaleX, btnY, '⚡ CHARGE', buttonStyle)
+                .setInteractive()
+                .on('pointerdown', () => playerAction('charge', scene));
+
+            // Status text
+            const statusSize = Math.max(18, 24 * scaleX);
+            scene.statusText = scene.add.text(400 * scaleX, 300 * scaleY, '', {
+                fontSize: statusSize + 'px',
+                fill: '#ffff00',
+                align: 'center'
+            }).setOrigin(0.5);
+
+            const botActionSize = Math.max(14, 18 * scaleX);
+            scene.botActionText = scene.add.text(400 * scaleX, 100 * scaleY, '', {
+                fontSize: botActionSize + 'px',
+                fill: '#ff6666',
+                align: 'center'
+            }).setOrigin(0.5);
+        }
+
+        function playerAction(action, scene) {
+            if (gameState.actionCooldown > 0 || gameState.playerHealth <= 0 || gameState.botHealth <= 0) return;
+
+            gameState.actionCooldown = 60;
+            animateRobot(player, action, scene);
+
+            scene.time.delayedCall(300, () => {
+                const botActionIndex = ucbAgent.selectAction();
+                const botAction = ucbAgent.getActionName(botActionIndex);
+                
+                scene.botActionText.setText(`Bot uses: ${botAction.toUpperCase()}`);
+                animateRobot(bot, botAction, scene);
+
+                scene.time.delayedCall(400, () => {
+                    const result = resolveCombat(action, botAction, scene);
+                    const reward = calculateReward(result, gameState.botHealth);
+                    ucbAgent.updateReward(botActionIndex, reward);
+
+                    updateHealthBar(player);
+                    updateHealthBar(bot);
+                    checkWinCondition(scene);
+
+                    scene.time.delayedCall(2000, () => {
+                        scene.statusText.setText('');
+                        scene.botActionText.setText('');
+                    });
+                });
+            });
+        }
+
+        function animateRobot(robot, action, scene) {
+            const originalX = robot.x;
+            const originalY = robot.y;
+            const facing = robot.getData('facing');
+
+            switch(action) {
+                case 'attack':
+                    scene.tweens.add({
+                        targets: robot,
+                        x: originalX + (50 * scaleX * facing),
+                        duration: 200,
+                        yoyo: true,
+                        ease: 'Power2'
+                    });
+                    break;
+                case 'defend':
+                    scene.tweens.add({
+                        targets: robot,
+                        scaleX: 0.8,
+                        scaleY: 1.2,
+                        duration: 300,
+                        yoyo: true
+                    });
+                    break;
+                case 'dodge':
+                    scene.tweens.add({
+                        targets: robot,
+                        y: originalY - (50 * scaleY),
+                        duration: 200,
+                        yoyo: true,
+                        ease: 'Sine.easeInOut'
+                    });
+                    break;
+                case 'charge':
+                    scene.tweens.add({
+                        targets: robot,
+                        angle: robot.angle + (360 * facing),
+                        duration: 400,
+                        ease: 'Power2'
+                    });
+                    break;
+            }
+        }
+
+        function resolveCombat(playerAction, botAction, scene) {
+            const isCritical = Math.random() < 0.25;
+            const baseDamage = isCritical ? 25 : 15;
+            
+            let playerDamage = 0;
+            let botDamage = 0;
+            let message = '';
+
+            if (playerAction === 'attack' && botAction === 'attack') {
+                playerDamage = baseDamage * 0.5;
+                botDamage = baseDamage * 0.5;
+                message = 'Both robots clash!';
+            } else if (playerAction === 'attack' && botAction === 'defend') {
+                botDamage = baseDamage * 0.3;
+                message = 'Bot defends!';
+            } else if (playerAction === 'attack' && botAction === 'dodge') {
+                message = 'Bot dodges!';
+            } else if (playerAction === 'attack' && botAction === 'charge') {
+                botDamage = baseDamage * 1.5;
+                message = isCritical ? 'CRITICAL HIT!' : 'Player hits charging bot!';
+            } else if (playerAction === 'charge' && botAction === 'attack') {
+                playerDamage = baseDamage * 1.5;
+                message = 'Bot counters charge!';
+            } else if (playerAction === 'defend' && botAction === 'attack') {
+                playerDamage = baseDamage * 0.3;
+                message = 'Player defends!';
+            } else if (playerAction === 'dodge' && botAction === 'attack') {
+                message = 'Player dodges!';
+            } else {
+                message = 'Both robots reposition!';
+            }
+
+            gameState.playerHealth = Math.max(0, gameState.playerHealth - playerDamage);
+            gameState.botHealth = Math.max(0, gameState.botHealth - botDamage);
+            
+            player.setData('health', gameState.playerHealth);
+            bot.setData('health', gameState.botHealth);
+            scene.statusText.setText(message);
+
+            updateUI();
+
+            return { playerDamage, botDamage, isCritical };
+        }
+
+        function calculateReward(result, botHealthAfter) {
+            let reward = 0;
+            reward += result.playerDamage * 0.5;
+            reward -= result.botDamage * 0.5;
+            if (result.isCritical && result.botDamage > 0) reward += 5;
+            reward += botHealthAfter * 0.1;
+            return Math.max(0, Math.min(1, reward / 50));
+        }
+
+        function updateHealthBar(robot) {
+            const healthBar = robot.getData('healthBar');
+            const health = robot.getData('health');
+            const maxWidth = healthBar.getData('maxWidth');
+            healthBar.width = (health / 100) * maxWidth;
+            
+            if (health > 60) healthBar.fillColor = 0x00ff00;
+            else if (health > 30) healthBar.fillColor = 0xffff00;
+            else healthBar.fillColor = 0xff0000;
+        }
+
+        function checkWinCondition(scene) {
+            if (gameState.playerHealth <= 0) {
+                gameState.botWins++;
+                scene.statusText.setText('BOT WINS!');
+                resetRound(scene);
+            } else if (gameState.botHealth <= 0) {
+                gameState.playerWins++;
+                scene.statusText.setText('PLAYER WINS!');
+                resetRound(scene);
+            }
+        }
+
+        function resetRound(scene) {
+            scene.time.delayedCall(3000, () => {
+                gameState.round++;
+                gameState.playerHealth = 100;
+                gameState.botHealth = 100;
+                player.setData('health', 100);
+                bot.setData('health', 100);
+                updateHealthBar(player);
+                updateHealthBar(bot);
+                scene.statusText.setText('');
+                updateUI();
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('player-health').textContent = Math.round(gameState.playerHealth);
+            document.getElementById('bot-health').textContent = Math.round(gameState.botHealth);
+            document.getElementById('round-number').textContent = gameState.round;
+            document.getElementById('player-wins').textContent = gameState.playerWins;
+            document.getElementById('bot-wins').textContent = gameState.botWins;
+        }
+
+        function update() {
+            if (gameState.actionCooldown > 0) {
+                gameState.actionCooldown--;
+            }
+        }
+
+        const game = new Phaser.Game(config);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const newDimensions = getGameDimensions();
+            game.scale.resize(newDimensions.width, newDimensions.height);
+        });
+    </script>
+</body>
+</html>
